@@ -1,6 +1,6 @@
 {
-  "name": "SAC Converter",
-  "short_name": "SAC Converter",
+  "name": "SAC File Converter",
+  "short_name": "SFC",
   "description": "Convert text and archive files from upload or URL on Android, iOS, Windows, and desktop browsers.",
   "start_url": "./website.html",
   "scope": "./",
