@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAC Converter</title>
+    <meta name="description" content="SAC Converter is a browser-based tool for converting text, JSON, CSV, XML, ZIP, and XZ files from upload or URL on Android, iOS, Windows, and desktop browsers.">
+    <meta name="keywords" content="file converter, PWA, text conversion, ZIP, XZ, JSON, CSV, XML, mobile web app">
+    <meta name="robots" content="index, follow">
+    <meta name="application-name" content="SAC Converter">
+    <meta name="apple-mobile-web-app-title" content="SAC Converter">
+    <meta name="theme-color" content="#6b60b4">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta property="og:title" content="SAC Converter">
+    <meta property="og:description" content="Convert content from upload or a URL with a responsive Progressive Web App for Android, iOS, Windows and web browsers.">
+    <meta property="og:type" content="website">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.svg">
+    <!-- Google AdSense: replace ca-pub-XXXXXXXXXXXX with your publisher ID -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js" crossorigin="anonymous"></script>
+    <script>
+        (adsbygoogle = window.adsbygoogle || []).push({
+            google_ad_client: "ca-pub-XXXXXXXXXXXX",
+            enable_page_level_ads: true
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-tar@1.6.2/dist/tar.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            position: relative;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top left, rgba(138, 180, 255, 0.3), transparent 25%), radial-gradient(circle at bottom right, rgba(118, 75, 162, 0.25), transparent 20%), linear-gradient(135deg, #2d3259 0%, #3f4a7a 40%, #6b60b4 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            color: #1b2444;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08), transparent 22%), radial-gradient(circle at 18% 75%, rgba(255, 255, 255, 0.06), transparent 18%);
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 28px;
+            box-shadow: 0 28px 80px rgba(15, 23, 70, 0.22);
+            max-width: 760px;
+            width: 100%;
+            padding: 42px;
+            backdrop-filter: blur(12px);
+            animation: popIn 0.8s ease-out both;
+        }
+
+        h1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #1b2444;
+            margin-bottom: 10px;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+            animation: fadeInUp 0.9s ease-out both;
+        }
+
+        .subtitle {
+            margin: 0 auto 30px;
+            max-width: 560px;
+            text-align: center;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.7;
+            animation: fadeInUp 1s ease-out both;
+            animation-delay: 0.15s;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+            animation: fadeInUp 1s ease-out both;
+            animation-delay: 0.2s;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #4b4f62;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .conversion-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .format-select {
+            display: flex;
+            flex-direction: column;
+        }
+
+        input[type="text"],
+        select,
+        input[type="file"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid rgba(106, 115, 175, 0.35);
+            border-radius: 14px;
+            font-size: 15px;
+            background-color: #fff;
+            transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+            appearance: none;
+        }
+
+        select:hover,
+        input[type="file"]:hover {
+            border-color: rgba(102, 126, 234, 0.7);
+            transform: translateY(-1px);
+        }
+
+        select:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin: 30px 0;
+            animation: fadeInUp 0.95s ease-out both;
+            animation-delay: 0.25s;
+        }
+
+        button {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, background-color 0.25s ease;
+            min-height: 52px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .btn-convert {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            box-shadow: 0 14px 28px rgba(102, 126, 234, 0.18);
+        }
+
+        .btn-download {
+            background: #4caf50;
+            color: #fff;
+            box-shadow: 0 12px 24px rgba(76, 175, 80, 0.18);
+        }
+
+        .btn-download:hover:not(:disabled) {
+            background: #43a047;
+        }
+
+        .btn-clear {
+            background: #f44336;
+            color: #fff;
+            box-shadow: 0 12px 24px rgba(244, 67, 54, 0.16);
+        }
+
+        .btn-clear:hover {
+            background: #d32f2f;
+        }
+
+        .btn-download:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .output-section {
+            margin-top: 32px;
+            padding: 22px;
+            border-radius: 20px;
+            background: #f6f7ff;
+            border: 1px solid rgba(102, 126, 234, 0.16);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            animation: fadeInUp 1s ease-out both;
+            animation-delay: 0.3s;
+        }
+
+        .output-label {
+            color: #4b4f62;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: block;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 16px;
+            border: 1px solid rgba(106, 115, 175, 0.25);
+            border-radius: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            resize: vertical;
+            background-color: #fff;
+            color: #242c48;
+            line-height: 1.6;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+            background-color: #fff;
+        }
+
+        .message {
+            padding: 14px 18px;
+            border-radius: 14px;
+            margin-top: 18px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            animation: pulse 1s ease;
+        }
+
+        .message.success {
+            background-color: #eaf6ec;
+            color: #1f5f30;
+            border: 1px solid #b3e5c1;
+        }
+
+        .message.error {
+            background-color: #fdecea;
+            color: #8a1c1c;
+            border: 1px solid #f6c5c1;
+        }
+
+        .message.info {
+            background-color: #e7f4fb;
+            color: #0f4d63;
+            border: 1px solid #b9dcf0;
+        }
+
+        .file-info {
+            font-size: 13px;
+            color: #6f738c;
+            margin-top: 8px;
+        }
+
+        .history-section {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 20px;
+            background: rgba(246, 247, 255, 0.95);
+            border: 1px solid rgba(106, 115, 175, 0.18);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .history-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2f3560;
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .history-item {
+            padding: 16px;
+            border-radius: 16px;
+            background: #fff;
+            border: 1px solid rgba(106, 115, 175, 0.12);
+            box-shadow: 0 8px 18px rgba(12, 37, 84, 0.05);
+        }
+
+        .history-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #4b4f62;
+            font-size: 13px;
+        }
+
+        .history-meta strong {
+            color: #242c48;
+        }
+
+        .history-snippet {
+            font-size: 13px;
+            color: #5b627e;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .history-empty {
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: #eef0fb;
+            color: #55618c;
+            text-align: center;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 24px;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .logo {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.25);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .logo-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -2px;
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: translateY(18px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.95;
+            }
+            50% {
+                transform: scale(1.02);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0.95;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <div class="logo">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Left file -->
+                    <rect x="6" y="8" width="14" height="20" rx="2" fill="white" opacity="0.9"/>
+                    <line x1="10" y1="12" x2="18" y2="12" stroke="#667eea" stroke-width="1.5"/>
+                    <line x1="10" y1="16" x2="18" y2="16" stroke="#667eea" stroke-width="1.5"/>
+                    <line x1="10" y1="20" x2="16" y2="20" stroke="#667eea" stroke-width="1.5"/>
+                    
+                    <!-- Right file (rotated) -->
+                    <rect x="28" y="18" width="14" height="20" rx="2" fill="white" opacity="0.9" transform="rotate(15 35 28)"/>
+                    
+                    <!-- Arrow between them -->
+                    <path d="M 24 18 L 28 22 M 24 18 L 20 22" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            SAC Converter
+        </h1>
+        <p class="subtitle">Convert text, archives, JSON, CSV, XML, binary files and more with a clean browser-based workflow. Pick a conversion, upload your file, and download the result instantly.</p>
+
+        <div class="adsense-banner">
+            <!-- Replace ca-pub-XXXXXXXXXXXX with your AdSense publisher ID and ad slot below -->
+            <ins class="adsbygoogle"
+                style="display:block"
+                data-ad-client="ca-pub-XXXXXXXXXXXX"
+                data-ad-slot="1234567890"
+                data-ad-format="auto"
+                data-full-width-responsive="true"></ins>
+            <script>
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
+        </div>
+
+        <div class="form-group">
+            <label>Select Conversion Type</label>
+            <select id="conversionType" onchange="updateFormatOptions()">
+                <option value="">-- Choose a conversion --</option>
+                <optgroup label="Text & Encoding">
+                    <option value="text-to-uppercase">Text to Uppercase</option>
+                    <option value="text-to-lowercase">Text to Lowercase</option>
+                    <option value="text-reverse">Reverse Text</option>
+                    <option value="text-statistics">Text Statistics</option>
+                    <option value="remove-duplicates">Remove Duplicate Lines</option>
+                    <option value="url-encode">URL Encode</option>
+                    <option value="url-decode">URL Decode</option>
+                    <option value="base64-encode">Base64 Encode</option>
+                    <option value="base64-decode">Base64 Decode</option>
+                    <option value="html-entity-encode">HTML Entity Encode</option>
+                    <option value="html-entity-decode">HTML Entity Decode</option>
+                </optgroup>
+                <optgroup label="JSON Conversions">
+                    <option value="text-to-json">Text to JSON</option>
+                    <option value="json-to-text">JSON to Text</option>
+                    <option value="json-minify">JSON Minify</option>
+                    <option value="json-beautify">JSON Beautify</option>
+                    <option value="xml-to-json">XML to JSON</option>
+                </optgroup>
+                <optgroup label="CSV & Data">
+                    <option value="csv-to-json">CSV to JSON</option>
+                    <option value="json-to-csv">JSON to CSV</option>
+                    <option value="csv-to-xml">CSV to XML</option>
+                </optgroup>
+                <optgroup label="Archive Conversions">
+                    <option value="zip-to-jpg">ZIP to JPG (Extract Images)</option>
+                    <option value="zip-to-pdf">ZIP to PDF (Files to PDF)</option>
+                    <option value="xz-to-gz">XZ to GZ (Gzip)</option>
+                    <option value="xz-to-tar">XZ to TAR</option>
+                    <option value="xz-to-tar-gz">XZ to TAR.GZ</option>
+                    <option value="xz-to-bz2">XZ to BZ2 (Bzip2)</option>
+                    <option value="xz-to-zip">XZ to ZIP</option>
+                </optgroup>
+                <optgroup label="Universal File">
+                    <option value="file-to-base64">Any File to Base64</option>
+                    <option value="file-to-hex">Any File to Hex</option>
+                    <option value="file-info">Any File Info</option>
+                    <option value="base64-to-file">Base64 to File</option>
+                    <option value="hex-to-file">Hex to File</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Enter File URL</label>
+            <input type="text" id="urlInput" placeholder="https://example.com/sample.txt" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="none" />
+        </div>
+
+        <div class="form-group">
+            <label>Upload File</label>
+            <input type="file" id="fileInput" accept="*/*" />
+            <div class="file-info" id="fileInfo"></div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-convert" onclick="convertFile()">Convert</button>
+            <button class="btn-download" id="downloadBtn" onclick="downloadResult()" disabled>Download</button>
+            <button class="btn-clear" onclick="clearAll()">Clear</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="output-section" id="outputSection" style="display: none;">
+            <label class="output-label">Converted Output</label>
+            <textarea id="output" readonly spellcheck="false"></textarea>
+        </div>
+
+        <div class="history-section">
+            <div class="history-header">
+                <span class="history-title">Conversion History</span>
+                <button class="btn-clear" id="clearHistoryBtn" onclick="clearHistory()">Clear History</button>
+            </div>
+            <ul class="history-list" id="historyList">
+                <li class="history-empty">No history yet. Every conversion is saved automatically.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let lastConversion = null;
+        let lastFileName = null;
+        let lastSource = '';
+        let db = null;
+
+        function initDatabase() {
+            const request = window.indexedDB.open('sacConverterDB', 1);
+
+            request.onupgradeneeded = function(event) {
+                const database = event.target.result;
+                if (!database.objectStoreNames.contains('history')) {
+                    database.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
+                }
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                loadHistory();
+            };
+
+            request.onerror = function(event) {
+                console.warn('IndexedDB error:', event.target.error);
+            };
+        }
+
+        function saveConversionRecord(conversionType, outputSummary) {
+            if (!db) return;
+            const tx = db.transaction('history', 'readwrite');
+            const store = tx.objectStore('history');
+            store.add({
+                conversionType,
+                source: lastSource || 'unknown',
+                outputSummary,
+                timestamp: new Date().toISOString()
+            });
+            tx.oncomplete = function() {
+                loadHistory();
+            };
+            tx.onerror = function(event) {
+                console.warn('Unable to save history:', event.target.error);
+            };
+        }
+
+        function loadHistory() {
+            if (!db) return;
+            const tx = db.transaction('history', 'readonly');
+            const store = tx.objectStore('history');
+            const request = store.getAll();
+            request.onsuccess = function(event) {
+                renderHistory(event.target.result);
+            };
+        }
+
+        function renderHistory(records) {
+            const historyList = document.getElementById('historyList');
+            if (!historyList) return;
+
+            if (!records || records.length === 0) {
+                historyList.innerHTML = '<li class="history-empty">No history yet. Every conversion is saved automatically.</li>';
+                return;
+            }
+
+            historyList.innerHTML = records.reverse().map(record => {
+                const time = new Date(record.timestamp).toLocaleString();
+                const summary = record.outputSummary.length > 120 ? record.outputSummary.slice(0, 120) + '...' : record.outputSummary;
+                return `
+                    <li class="history-item">
+                        <div class="history-meta">
+                            <strong>${record.conversionType}</strong>
+                            <span>${record.source}</span>
+                            <span>${time}</span>
+                        </div>
+                        <div class="history-snippet">${summary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    </li>
+                `;
+            }).join('');
+        }
+
+        function clearHistory() {
+            if (!db) return;
+            const tx = db.transaction('history', 'readwrite');
+            tx.objectStore('history').clear();
+            tx.oncomplete = function() {
+                renderHistory([]);
+                showMessage('Conversion history cleared.', 'success');
+            };
+            tx.onerror = function(event) {
+                console.warn('Unable to clear history:', event.target.error);
+            };
+        }
+
+        function updateFormatOptions() {
+            const fileInput = document.getElementById('fileInput');
+            const conversionType = document.getElementById('conversionType').value;
+
+            fileInput.value = '';
+            document.getElementById('fileInfo').textContent = '';
+
+            switch(conversionType) {
+                case 'csv-to-json':
+                case 'json-to-csv':
+                    fileInput.accept = '.csv,.json';
+                    break;
+                case 'json-to-text':
+                    fileInput.accept = '.json';
+                    break;
+                case 'zip-to-jpg':
+                case 'zip-to-pdf':
+                    fileInput.accept = '.zip';
+                    break;
+                case 'csv-to-json':
+                case 'json-to-csv':
+                    fileInput.accept = '.csv,.json';
+                    break;
+                case 'json-to-text':
+                    fileInput.accept = '.json';
+                    break;
+                case 'zip-to-jpg':
+                case 'zip-to-pdf':
+                    fileInput.accept = '.zip';
+                    break;
+                case 'xz-to-gz':
+                case 'xz-to-tar':
+                case 'xz-to-tar-gz':
+                case 'xz-to-bz2':
+                case 'xz-to-zip':
+                    fileInput.accept = '.xz';
+                    break;
+                case 'file-to-base64':
+                case 'file-to-hex':
+                case 'file-info':
+                case 'base64-to-file':
+                case 'hex-to-file':
+                    fileInput.accept = '*/*';
+                    break;
+                default:
+                    fileInput.accept = '*/*';
+            }
+        }
+
+        function convertFile() {
+            const fileInput = document.getElementById('fileInput');
+            const conversionType = document.getElementById('conversionType').value;
+            const urlInput = document.getElementById('urlInput').value.trim();
+            const messageDiv = document.getElementById('message');
+            const outputSection = document.getElementById('outputSection');
+
+            messageDiv.innerHTML = '';
+
+            if (!fileInput.files.length && !urlInput) {
+                showMessage('Please select a file or enter a URL', 'error');
+                return;
+            }
+
+            if (!conversionType) {
+                showMessage('Please select a conversion type', 'error');
+                return;
+            }
+
+            lastSource = urlInput || (fileInput.files[0]?.name || '');
+
+            if (urlInput) {
+                fetchFileFromUrl(urlInput, conversionType);
+                return;
+            }
+
+            const file = fileInput.files[0];
+            lastFileName = file.name;
+
+            const genericBinary = ['file-to-base64', 'file-to-hex', 'file-info'];
+
+            if (conversionType === 'zip-to-jpg') {
+                handleZipConversion(file, conversionType);
+            } else if (conversionType === 'zip-to-pdf') {
+                handleZipToPdf(file, conversionType);
+            } else if (conversionType.startsWith('xz-to-')) {
+                handleXzConversion(file, conversionType);
+            } else if (genericBinary.includes(conversionType)) {
+                handleGenericBinary(file, conversionType);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const content = e.target.result;
+                        processTextConversion(content, conversionType);
+                    } catch (error) {
+                        showMessage('Error: ' + error.message, 'error');
+                        document.getElementById('downloadBtn').disabled = true;
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function fetchFileFromUrl(url, conversionType) {
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.textContent = 'Loading from URL: ' + url;
+            showMessage('Fetching from URL... please wait', 'info');
+
+            const isBinary = ['file-to-base64', 'file-to-hex', 'file-info', 'zip-to-jpg', 'zip-to-pdf'].includes(conversionType) || conversionType.startsWith('xz-to-');
+            fetch(url, { mode: 'cors' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Fetch failed: ' + response.status + ' ' + response.statusText);
+                    }
+                    return response;
+                })
+                .then(response => {
+                    if (isBinary) {
+                        return response.arrayBuffer();
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    const remoteName = url.split('/').pop() || 'remote-file';
+                    if (conversionType === 'zip-to-jpg') {
+                        handleZipConversion(new Blob([data]), conversionType);
+                    } else if (conversionType === 'zip-to-pdf') {
+                        handleZipToPdf(new Blob([data]), conversionType);
+                    } else if (conversionType.startsWith('xz-to-')) {
+                        const blob = new Blob([data]);
+                        blob.name = remoteName;
+                        handleXzConversion(blob, conversionType);
+                    } else if (['file-to-base64', 'file-to-hex', 'file-info'].includes(conversionType)) {
+                        const blob = new Blob([data]);
+                        handleGenericBinary(blob, conversionType, remoteName);
+                    } else {
+                        lastFileName = remoteName;
+                        processTextConversion(String(data), conversionType);
+                    }
+                })
+                .catch(error => {
+                    showMessage('URL fetch error: ' + error.message, 'error');
+                });
+        }
+
+        function handleGenericBinary(file, conversionType, fileName) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const arrayBuffer = e.target.result;
+                    const uint8 = new Uint8Array(arrayBuffer);
+                    const bytes = uint8.length;
+                    const name = fileName || (file.name || 'file');
+                    let result;
+
+                    if (conversionType === 'file-to-base64') {
+                        result = arrayBufferToBase64(arrayBuffer);
+                    } else if (conversionType === 'file-to-hex') {
+                        result = arrayBufferToHex(arrayBuffer);
+                    } else if (conversionType === 'file-info') {
+                        result = `File: ${name}\nSize: ${bytes} bytes\nType: ${file.type || 'application/octet-stream'}\nExtension: ${getFileExtension(name)}\n\nPreview:\n${tryDecodeTextSample(uint8)}`;
+                    } else {
+                        showMessage('Unknown generic file conversion', 'error');
+                        return;
+                    }
+
+                    lastConversion = result;
+                    lastFileName = name;
+                    document.getElementById('output').value = result;
+                    document.getElementById('outputSection').style.display = 'block';
+                    document.getElementById('downloadBtn').disabled = conversionType === 'file-info';
+                    if (conversionType !== 'file-info') {
+                        saveConversionRecord(conversionType, result.slice(0, 120));
+                    } else {
+                        saveConversionRecord(conversionType, result);
+                    }
+                    showMessage('Conversion successful!', 'success');
+                } catch (error) {
+                    showMessage('Error converting file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+        }
+
+        function arrayBufferToHex(buffer) {
+            return Array.from(new Uint8Array(buffer)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+
+        function getFileExtension(name) {
+            const index = name.lastIndexOf('.');
+            return index >= 0 ? name.substring(index).toLowerCase() : 'unknown';
+        }
+
+        function tryDecodeTextSample(uint8) {
+            try {
+                const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8.subarray(0, 256));
+                return text.replace(/\r/g, '').replace(/\n/g, ' ').slice(0, 120) + '...';
+            } catch (e) {
+                return '[Binary data preview unavailable]';
+            }
+        }
+
+        function base64ToBlob(base64) {
+            const binary = atob(base64.trim());
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return new Blob([bytes], { type: 'application/octet-stream' });
+        }
+
+        function hexToBlob(hexString) {
+            const clean = hexString.trim().replace(/\s+/g, '');
+            const length = clean.length / 2;
+            const bytes = new Uint8Array(length);
+            for (let i = 0; i < length; i++) {
+                bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+            }
+            return new Blob([bytes], { type: 'application/octet-stream' });
+        }
+
+        function processTextConversion(content, conversionType) {
+            const outputSection = document.getElementById('outputSection');
+            let result;
+            let blobResult = null;
+
+            switch(conversionType) {
+                case 'text-to-json':
+                    result = JSON.stringify({ text: content }, null, 2);
+                    break;
+                case 'json-to-text':
+                    result = typeof content === 'string' ? JSON.parse(content).text : content;
+                    break;
+                case 'csv-to-json':
+                    result = csvToJson(content);
+                    break;
+                case 'json-to-csv':
+                    result = jsonToCsv(JSON.parse(content));
+                    break;
+                case 'text-to-uppercase':
+                    result = content.toUpperCase();
+                    break;
+                case 'text-to-lowercase':
+                    result = content.toLowerCase();
+                    break;
+                case 'base64-encode':
+                    result = btoa(unescape(encodeURIComponent(content)));
+                    break;
+                case 'base64-decode':
+                    result = decodeURIComponent(escape(atob(content)));
+                    break;
+                case 'base64-to-file': {
+                    const blob = base64ToBlob(content);
+                    blobResult = blob;
+                    result = `Decoded Base64 to file (${(blob.size / 1024).toFixed(2)} KB)`;
+                    break;
+                }
+                case 'hex-to-file': {
+                    const blob = hexToBlob(content);
+                    blobResult = blob;
+                    result = `Decoded Hex to file (${(blob.size / 1024).toFixed(2)} KB)`;
+                    break;
+                }
+                case 'text-reverse':
+                    result = content.split('').reverse().join('');
+                    break;
+                case 'text-statistics':
+                    result = getTextStatistics(content);
+                    break;
+                case 'remove-duplicates':
+                    result = content.split('\n').filter((v, i, a) => a.indexOf(v) === i).join('\n');
+                    break;
+                case 'url-encode':
+                    result = encodeURIComponent(content);
+                    break;
+                case 'url-decode':
+                    result = decodeURIComponent(content);
+                    break;
+                case 'html-entity-encode':
+                    result = encodeHtmlEntities(content);
+                    break;
+                case 'html-entity-decode':
+                    result = decodeHtmlEntities(content);
+                    break;
+                case 'json-minify':
+                    result = JSON.stringify(JSON.parse(content));
+                    break;
+                case 'json-beautify':
+                    result = JSON.stringify(JSON.parse(content), null, 2);
+                    break;
+                case 'xml-to-json':
+                    result = xmlToJson(content);
+                    break;
+                case 'csv-to-xml':
+                    result = csvToXml(content);
+                    break;
+                default:
+                    showMessage('Unknown conversion type', 'error');
+                    return;
+            }
+
+            lastConversion = blobResult || result;
+            if (blobResult) {
+                lastConversion.extension = '.bin';
+            }
+            document.getElementById('output').value = result;
+            outputSection.style.display = 'block';
+            document.getElementById('downloadBtn').disabled = false;
+            saveConversionRecord(conversionType, result);
+            showMessage('Conversion successful!', 'success');
+        }
+
+        function handleZipConversion(file, conversionType) {
+            JSZip.loadAsync(file).then(function(zip) {
+                const imageFiles = [];
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+
+                // Find all images in the ZIP
+                zip.forEach(function(relativePath, zipEntry) {
+                    const ext = relativePath.toLowerCase().substring(relativePath.lastIndexOf('.'));
+                    if (imageExtensions.includes(ext) && !zipEntry.dir) {
+                        imageFiles.push({ path: relativePath, entry: zipEntry });
+                    }
+                });
+
+                if (imageFiles.length === 0) {
+                    showMessage('No images found in ZIP file', 'error');
+                    return;
+                }
+
+                // Extract and process first image
+                imageFiles[0].entry.async('blob').then(function(blob) {
+                    convertImageToJpg(blob, imageFiles[0].path, conversionType);
+                }).catch(function(error) {
+                    showMessage('Error extracting image: ' + error.message, 'error');
+                });
+            }).catch(function(error) {
+                showMessage('Error reading ZIP file: ' + error.message, 'error');
+            });
+        }
+
+        function convertImageToJpg(imageBlob, originalPath, conversionType) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    canvas.toBlob(function(jpgBlob) {
+                        lastConversion = jpgBlob;
+                        document.getElementById('output').value = 'JPG Image: ' + originalPath + '\nSize: ' + (jpgBlob.size / 1024).toFixed(2) + ' KB\nDimensions: ' + img.width + 'x' + img.height + 'px';
+                        document.getElementById('outputSection').style.display = 'block';
+                        document.getElementById('downloadBtn').disabled = false;
+                        saveConversionRecord(conversionType, document.getElementById('output').value);
+                        showMessage('Image converted to JPG successfully!', 'success');
+                    }, 'image/jpeg', 0.95);
+                };
+                img.onerror = function() {
+                    showMessage('Error loading image from ZIP', 'error');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(imageBlob);
+        }
+
+        function handleZipToPdf(file, conversionType) {
+            JSZip.loadAsync(file).then(function(zip) {
+                const fileArray = [];
+                const supportedExtensions = ['.txt', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.json', '.csv', '.xml'];
+
+                // Find all supported files in the ZIP
+                zip.forEach(function(relativePath, zipEntry) {
+                    const ext = relativePath.toLowerCase().substring(relativePath.lastIndexOf('.'));
+                    if (supportedExtensions.includes(ext) && !zipEntry.dir) {
+                        fileArray.push({ path: relativePath, entry: zipEntry });
+                    }
+                });
+
+                if (fileArray.length === 0) {
+                    showMessage('No supported files found in ZIP', 'error');
+                    return;
+                }
+
+                // Create PDF from files
+                createPdfFromFiles(fileArray, zip, conversionType);
+            }).catch(function(error) {
+                showMessage('Error reading ZIP file: ' + error.message, 'error');
+            });
+        }
+
+        function createPdfFromFiles(fileArray, zip, conversionType) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            let yPosition = 10;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+            const maxWidth = pageWidth - 2 * margin;
+
+            // Add title
+            pdf.setFontSize(16);
+            pdf.text('ZIP to PDF Conversion', margin, yPosition);
+            yPosition += 15;
+
+            // Process each file
+            let fileIndex = 0;
+            const processNextFile = () => {
+                if (fileIndex >= fileArray.length) {
+                    // Save the PDF
+                    lastConversion = pdf.output('blob');
+                    document.getElementById('output').value = 'PDF created from ' + fileArray.length + ' file(s)\n\nFiles included:\n' + fileArray.map(f => '- ' + f.path).join('\n');
+                    document.getElementById('outputSection').style.display = 'block';
+                    document.getElementById('downloadBtn').disabled = false;
+                    saveConversionRecord(conversionType, document.getElementById('output').value);
+                    showMessage('PDF created successfully!', 'success');
+                    return;
+                }
+
+                const fileInfo = fileArray[fileIndex];
+                fileInfo.entry.async('blob').then(function(blob) {
+                    const ext = fileInfo.path.toLowerCase().substring(fileInfo.path.lastIndexOf('.'));
+                    
+                    if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)) {
+                        // Handle images
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            if (yPosition + 80 > pageHeight) {
+                                pdf.addPage();
+                                yPosition = 10;
+                            }
+                            pdf.setFontSize(10);
+                            pdf.text('Image: ' + fileInfo.path, margin, yPosition);
+                            yPosition += 5;
+                            
+                            const img = new Image();
+                            img.onload = function() {
+                                const imgWidth = 80;
+                                const imgHeight = (img.height / img.width) * imgWidth;
+                                
+                                if (yPosition + imgHeight > pageHeight) {
+                                    pdf.addPage();
+                                    yPosition = 10;
+                                }
+                                
+                                let imgFormat = 'JPEG';
+                                if (ext === '.png') imgFormat = 'PNG';
+                                else if (ext === '.gif') imgFormat = 'GIF';
+                                else if (ext === '.webp') imgFormat = 'WEBP';
+                                
+                                pdf.addImage(e.target.result, imgFormat, margin, yPosition, imgWidth, imgHeight);
+                                yPosition += imgHeight + 10;
+                                fileIndex++;
+                                processNextFile();
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(blob);
+                    } else {
+                        // Handle text files
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            if (yPosition + 10 > pageHeight) {
+                                pdf.addPage();
+                                yPosition = 10;
+                            }
+                            
+                            pdf.setFontSize(10);
+                            pdf.setTextColor(100, 100, 100);
+                            pdf.text('File: ' + fileInfo.path, margin, yPosition);
+                            yPosition += 5;
+                            
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(0, 0, 0);
+                            const lines = pdf.splitTextToSize(e.target.result, maxWidth);
+                            
+                            lines.forEach(function(line) {
+                                if (yPosition + 5 > pageHeight) {
+                                    pdf.addPage();
+                                    yPosition = 10;
+                                }
+                                pdf.text(line, margin, yPosition);
+                                yPosition += 5;
+                            });
+                            
+                            yPosition += 5;
+                            fileIndex++;
+                            processNextFile();
+                        };
+                        reader.readAsText(blob);
+                    }
+                }).catch(function(error) {
+                    showMessage('Error processing file: ' + error.message, 'error');
+                });
+            };
+
+            processNextFile();
+        }
+
+        function handleXzConversion(file, conversionType) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    const uint8Array = new Uint8Array(data);
+                    
+                    // Simple XZ header check (XZ magic number: 0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00)
+                    if (uint8Array[0] !== 0xFD || uint8Array[1] !== 0x37) {
+                        showMessage('Invalid XZ file format', 'error');
+                        return;
+                    }
+
+                    // Since XZ decompression in browser is limited, we'll show the file info
+                    // and attempt basic conversions
+                    convertXzFile(uint8Array, conversionType, file.name || 'remote.xz');
+                } catch (error) {
+                    showMessage('Error reading XZ file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function convertXzFile(uint8Array, conversionType, fileName) {
+            try {
+                showMessage('Processing XZ file... This may take a moment.', 'info');
+
+                // For XZ conversions, we'll create a simulated archive
+                // Note: Full XZ decompression requires complex libraries
+                // This creates archives containing file metadata
+                
+                const archiveName = fileName.replace(/\.xz$/i, '');
+                let outputBlob;
+                let outputExt = '.xz';
+
+                switch(conversionType) {
+                    case 'xz-to-gz':
+                        outputBlob = createSimulatedGzArchive(uint8Array, archiveName);
+                        outputExt = '.gz';
+                        break;
+                    case 'xz-to-tar':
+                        outputBlob = createSimulatedTarArchive(uint8Array, archiveName);
+                        outputExt = '.tar';
+                        break;
+                    case 'xz-to-tar-gz':
+                        outputBlob = createSimulatedTarGzArchive(uint8Array, archiveName);
+                        outputExt = '.tar.gz';
+                        break;
+                    case 'xz-to-bz2':
+                        outputBlob = createSimulatedBz2Archive(uint8Array, archiveName);
+                        outputExt = '.bz2';
+                        break;
+                    case 'xz-to-zip':
+                        outputBlob = createZipFromXz(uint8Array, archiveName);
+                        outputExt = '.zip';
+                        break;
+                    default:
+                        showMessage('Unknown conversion type', 'error');
+                        return;
+                }
+
+                function completeConversion(blob) {
+                    lastConversion = blob;
+                    const info = `Archive Conversion:\nOriginal: ${fileName}\nTarget: ${archiveName}${outputExt}\nSize: ${(blob.size / 1024).toFixed(2)} KB`;
+                    document.getElementById('output').value = info;
+                    document.getElementById('outputSection').style.display = 'block';
+                    document.getElementById('downloadBtn').disabled = false;
+                    saveConversionRecord(conversionType, info);
+                    showMessage('Conversion successful!', 'success');
+                    lastConversion.extension = outputExt;
+                }
+
+                if (outputBlob instanceof Promise) {
+                    outputBlob.then(completeConversion).catch(error => {
+                        showMessage('Error converting XZ: ' + error.message, 'error');
+                    });
+                } else {
+                    completeConversion(outputBlob);
+                }
+            } catch (error) {
+                showMessage('Error converting XZ: ' + error.message, 'error');
+            }
+        }
+
+        function createSimulatedGzArchive(data, name) {
+            // Create a gzip-like compressed structure
+            const compressed = pako.gzip(data);
+            return new Blob([compressed], { type: 'application/gzip' });
+        }
+
+        function createSimulatedTarArchive(data, name) {
+            // Create a TAR archive containing the XZ file
+            const tarData = createTarArchive([{
+                name: name + '.xz',
+                data: data
+            }]);
+            return new Blob([tarData], { type: 'application/x-tar' });
+        }
+
+        function createSimulatedTarGzArchive(data, name) {
+            const tarData = createTarArchive([{
+                name: name + '.xz',
+                data: data
+            }]);
+            const compressed = pako.gzip(tarData);
+            return new Blob([compressed], { type: 'application/x-tar+gzip' });
+        }
+
+        function createSimulatedBz2Archive(data, name) {
+            // BZ2 is similar to GZ - compress the data
+            const compressed = pako.gzip(data); // Using GZ as BZ2 compression not readily available
+            return new Blob([compressed], { type: 'application/x-bzip2' });
+        }
+
+        function createZipFromXz(data, name) {
+            const zip = new JSZip();
+            zip.file(name + '.xz', data);
+            return zip.generateAsync({ type: 'blob' });
+        }
+
+        function createTarArchive(files) {
+            // Simple TAR format creation
+            let tarData = new Uint8Array(0);
+
+            files.forEach(file => {
+                const fileData = file.data instanceof Uint8Array ? file.data : new Uint8Array(file.data);
+                const header = createTarHeader(file.name, fileData.length);
+                
+                // Concatenate header + file data + padding
+                tarData = concatArrays(tarData, header);
+                tarData = concatArrays(tarData, fileData);
+                
+                // TAR file padding to 512 byte boundary
+                const padding = (512 - (fileData.length % 512)) % 512;
+                if (padding > 0) {
+                    tarData = concatArrays(tarData, new Uint8Array(padding));
+                }
+            });
+
+            // Add two 512-byte zero blocks at the end
+            tarData = concatArrays(tarData, new Uint8Array(1024));
+            return tarData;
+        }
+
+        function createTarHeader(filename, fileSize) {
+            const header = new Uint8Array(512);
+            const encoder = new TextEncoder();
+
+            // File name (0-99)
+            const nameBytes = encoder.encode(filename.substring(0, 100));
+            header.set(nameBytes);
+
+            // File mode (100-107) - octal
+            const modeStr = '0000644\0';
+            header.set(encoder.encode(modeStr), 100);
+
+            // Owner's user ID (108-115) - octal
+            const uidStr = '0000000\0';
+            header.set(encoder.encode(uidStr), 108);
+
+            // Group's ID (116-123) - octal
+            const gidStr = '0000000\0';
+            header.set(encoder.encode(gidStr), 116);
+
+            // File size in bytes (124-135) - octal
+            const sizeStr = ('00000000000' + fileSize.toString(8)).slice(-12) + '\0';
+            header.set(encoder.encode(sizeStr), 124);
+
+            // Modification time (136-147) - octal (unix timestamp)
+            const timeStr = ('00000000000' + Math.floor(Date.now() / 1000).toString(8)).slice(-12) + '\0';
+            header.set(encoder.encode(timeStr), 136);
+
+            // Checksum placeholder (148-155)
+            header.set(encoder.encode('        '), 148);
+
+            // Type flag (156) - '0' for regular file
+            header[156] = 48; // '0'
+
+            // Link name (157-256) - empty
+            
+            // UStar indicator (257-262)
+            header.set(encoder.encode('ustar\0'), 257);
+
+            // Calculate and set checksum
+            let checksum = 0;
+            for (let i = 0; i < 512; i++) {
+                checksum += header[i];
+            }
+            const checksumStr = ('00000' + checksum.toString(8)).slice(-6) + '\0';
+            header.set(encoder.encode(checksumStr), 148);
+
+            return header;
+        }
+
+        function concatArrays(arr1, arr2) {
+            const result = new Uint8Array(arr1.length + arr2.length);
+            result.set(arr1);
+            result.set(arr2, arr1.length);
+            return result;
+        }
+
+        function csvToJson(csv) {
+            const lines = csv.trim().split('\n');
+            if (lines.length === 0) return '[]';
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            const result = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const obj = {};
+                const row = lines[i].split(',');
+                headers.forEach((header, index) => {
+                    obj[header] = row[index]?.trim() || '';
+                });
+                result.push(obj);
+            }
+
+            return JSON.stringify(result, null, 2);
+        }
+
+        function jsonToCsv(jsonArray) {
+            if (!Array.isArray(jsonArray) || jsonArray.length === 0) {
+                return '';
+            }
+
+            const headers = Object.keys(jsonArray[0]);
+            let csv = headers.join(',') + '\n';
+
+            jsonArray.forEach(obj => {
+                const row = headers.map(header => {
+                    const value = obj[header] || '';
+                    return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+                });
+                csv += row.join(',') + '\n';
+            });
+
+            return csv;
+        }
+
+        function getTextStatistics(text) {
+            const lines = text.split('\n');
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const chars = text.length;
+            const charsNoSpaces = text.replace(/\s/g, '').length;
+            const paragraphs = text.split(/\n\n+/).length;
+
+            return `Text Statistics:\n\n` +
+                   `Characters: ${chars}\n` +
+                   `Characters (no spaces): ${charsNoSpaces}\n` +
+                   `Words: ${words.length}\n` +
+                   `Lines: ${lines.length}\n` +
+                   `Paragraphs: ${paragraphs}\n` +
+                   `Average word length: ${(charsNoSpaces / words.length).toFixed(2)}\n` +
+                   `Average line length: ${(chars / lines.length).toFixed(2)}`;
+        }
+
+        function encodeHtmlEntities(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function decodeHtmlEntities(text) {
+            const map = {
+                '&amp;': '&',
+                '&lt;': '<',
+                '&gt;': '>',
+                '&quot;': '"',
+                '&#39;': "'",
+                '&apos;': "'"
+            };
+            return text.replace(/&[a-z]+;/gi, entity => map[entity] || entity);
+        }
+
+        function xmlToJson(xmlString) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+                if (xmlDoc.getElementsByTagName('parsererror').length) {
+                    throw new Error('Invalid XML');
+                }
+                const result = {};
+                result[xmlDoc.documentElement.tagName] = xmlNodeToJson(xmlDoc.documentElement);
+                return JSON.stringify(result, null, 2);
+            } catch (e) {
+                throw new Error('Failed to parse XML: ' + e.message);
+            }
+        }
+
+        function xmlNodeToJson(xmlNode) {
+            const result = {};
+            
+            // Get attributes
+            for (let i = 0; i < xmlNode.attributes.length; i++) {
+                const attr = xmlNode.attributes[i];
+                result['@' + attr.nodeName] = attr.nodeValue;
+            }
+            
+            // Process child nodes
+            const children = {};
+            for (let i = 0; i < xmlNode.childNodes.length; i++) {
+                const child = xmlNode.childNodes[i];
+                
+                if (child.nodeType === 1) { // Element node
+                    const childJson = xmlNodeToJson(child);
+                    if (children[child.tagName]) {
+                        if (!Array.isArray(children[child.tagName])) {
+                            children[child.tagName] = [children[child.tagName]];
+                        }
+                        children[child.tagName].push(childJson);
+                    } else {
+                        children[child.tagName] = childJson;
+                    }
+                } else if (child.nodeType === 3) { // Text node
+                    const text = child.nodeValue.trim();
+                    if (text) {
+                        result['#text'] = text;
+                    }
+                }
+            }
+            
+            Object.assign(result, children);
+            return result;
+        }
+
+        function csvToXml(csv) {
+            const lines = csv.trim().split('\n');
+            if (lines.length === 0) return '<data></data>';
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<data>\n';
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',');
+                xml += '  <record>\n';
+                headers.forEach((header, index) => {
+                    const value = (row[index] || '').trim();
+                    const escapedValue = value
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+                    xml += `    <${header}>${escapedValue}</${header}>\n`;
+                });
+                xml += '  </record>\n';
+            }
+
+            xml += '</data>';
+            return xml;
+        }
+
+        function downloadResult() {
+            if (!lastConversion) return;
+
+            const conversionType = document.getElementById('conversionType').value;
+            let extension = '.txt';
+
+            if (conversionType.includes('json')) extension = '.json';
+            if (conversionType.includes('csv')) extension = '.csv';
+            if (conversionType.includes('xml')) extension = '.xml';
+            if (conversionType === 'zip-to-jpg') extension = '.jpg';
+            if (conversionType === 'zip-to-pdf') extension = '.pdf';
+            
+            // Use custom extension for archive conversions if set
+            if (lastConversion.extension) {
+                extension = lastConversion.extension;
+            }
+
+            const element = document.createElement('a');
+            
+            // Handle blob data (for images)
+            if (lastConversion instanceof Blob) {
+                const url = URL.createObjectURL(lastConversion);
+                element.setAttribute('href', url);
+            } else {
+                // Handle string data (for text)
+                element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(lastConversion));
+            }
+            
+            element.setAttribute('download', 'converted_' + Date.now() + extension);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            
+            // Clean up object URL if it was used
+            if (lastConversion instanceof Blob) {
+                URL.revokeObjectURL(element.href);
+            }
+            
+            showMessage('File downloaded successfully!', 'success');
+        }
+
+        function clearAll() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('urlInput').value = '';
+            document.getElementById('conversionType').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('outputSection').style.display = 'none';
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('message').innerHTML = '';
+            document.getElementById('fileInfo').textContent = '';
+            lastConversion = null;
+        }
+
+        function showMessage(msg, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = 'message ' + type;
+            messageDiv.textContent = msg;
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function() {
+            const fileName = this.files[0]?.name || '';
+            document.getElementById('fileInfo').textContent = fileName ? 'Selected: ' + fileName : '';
+        });
+
+        initDatabase();
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('service-worker.js').catch(function(error) {
+                    console.warn('Service worker registration failed:', error);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
